@@ -4,7 +4,7 @@
  * Kullanım: node test_manset_poster.js
  */
 require('dotenv').config();
-const { postToMersinManset } = require('./services/manset_poster');
+const { postToMersinManset } = require('../services/manset_poster');
 
 console.log('🧪 MERSIN MANŞET ENTEGRASYON TESTİ BAŞLATILIYOR\n');
 console.log(`API URL: ${process.env.MERSIN_MANSET_API_URL || 'Varsayılan (https://mersinmanset.tr)'}`);
