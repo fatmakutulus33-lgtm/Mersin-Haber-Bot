@@ -96,6 +96,33 @@ async function runPipeline(newsItem = null) {
 }
 
 async function publishNewsItem(imageFile, news) {
+  let durableImage = null;
+  try {
+    const { resolveDurablePublicUrl } = require('./services/instagram_poster');
+    durableImage = await resolveDurablePublicUrl(imageFile);
+  } catch (err) {
+    console.error("❌ Kalıcı görsel URL'si oluşturulamadı:", err.message);
+  }
+
+  let wordpressLink = null;
+  const wordpressEnabled = String(process.env.WORDPRESS_ENABLED || 'true').toLowerCase() !== 'false';
+  if (wordpressEnabled) {
+    try {
+      const { postToWordPress } = require('./services/wordpress_poster');
+      wordpressLink = await postToWordPress(imageFile, news, durableImage && durableImage.url);
+      if (wordpressLink) console.log(`🎉 WORDPRESS YAYINDA! Link: ${wordpressLink}`);
+    } catch (err) {
+      console.error('❌ WordPress paylaşımı sırasında hata oluştu:', err.message);
+    }
+  }
+
+  try {
+    const { postToMersinManset } = require('./services/manset_poster');
+    await postToMersinManset(news, durableImage && durableImage.url);
+  } catch (err) {
+    console.error('❌ Web portalına haber gönderilirken hata oluştu:', err.message);
+  }
+
   let publishId = null;
   let instagramError = null;
   try {
@@ -111,33 +138,6 @@ async function publishNewsItem(imageFile, news) {
     tiktokPublishId = await postToTikTok(imageFile, news);
   } catch (err) {
     console.error('❌ TikTok paylaşımı sırasında hata oluştu:', err.message);
-  }
-
-  let durableImage = null;
-  try {
-    const { resolveDurablePublicUrl } = require('./services/instagram_poster');
-    durableImage = await resolveDurablePublicUrl(imageFile);
-  } catch (err) {
-    console.error("❌ Kalıcı görsel URL'si oluşturulamadı:", err.message);
-  }
-
-  try {
-    const { postToMersinManset } = require('./services/manset_poster');
-    await postToMersinManset(news, durableImage && durableImage.url);
-  } catch (err) {
-    console.error('❌ Web portalına haber gönderilirken hata oluştu:', err.message);
-  }
-
-  let wordpressLink = null;
-  const wordpressEnabled = String(process.env.WORDPRESS_ENABLED || 'true').toLowerCase() !== 'false';
-  if (wordpressEnabled) {
-    try {
-      const { postToWordPress } = require('./services/wordpress_poster');
-      wordpressLink = await postToWordPress(imageFile, news, durableImage && durableImage.url);
-      if (wordpressLink) console.log(`🎉 WORDPRESS YAYINDA! Link: ${wordpressLink}`);
-    } catch (err) {
-      console.error('❌ WordPress paylaşımı sırasında hata oluştu:', err.message);
-    }
   }
 
   const completedPublishId = wordpressLink || publishId || tiktokPublishId || 'WP_POSTED';
