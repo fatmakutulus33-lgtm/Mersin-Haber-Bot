@@ -3,7 +3,7 @@
  * WordPress yayın servisinin tolerans ve mock testlerini gerçekleştirir.
  */
 require('dotenv').config();
-const { postToWordPress } = require('./services/wordpress_poster');
+const { postToWordPress } = require('../services/wordpress_poster');
 const assert = require('assert');
 
 async function testMissingCredentials() {
