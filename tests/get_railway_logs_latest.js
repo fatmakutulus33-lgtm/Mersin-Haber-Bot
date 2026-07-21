@@ -1,7 +1,7 @@
 const https = require('https');
 
 const token = 'c3c8f43a-7e58-4420-854e-cff386e8551c';
-const deploymentId = '82dc0b4f-4136-46ec-9375-d9c8b25436a9';
+const deploymentId = 'ecddce40-7771-4dd6-a144-1a301b6c06eb';
 
 const postData = JSON.stringify({
   query: `query {
