@@ -3,7 +3,9 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
 
-const PENDING_FILE = path.join(__dirname, '..', 'pending_approval.json');
+const PENDING_FILE = fs.existsSync('/data') 
+  ? '/data/pending_approval.json' 
+  : path.join(__dirname, '..', 'pending_approval.json');
 let _bot = null;
 
 function initBot() {
@@ -32,6 +34,12 @@ function initBot() {
         console.error('❌ Telegram ID yanıtı gönderilemedi:', err.message);
       }
     }
+  });
+
+  _bot.on('callback_query', (query) => {
+    setTimeout(() => {
+      _bot.answerCallbackQuery(query.id).catch(() => {});
+    }, 1500);
   });
 
   _bot.onText(/\/tetikle/, async (msg) => {
@@ -79,12 +87,16 @@ function restorePendingApproval() {
         ? `✅ <b>Onaylandı!</b> Paylaşımlar yapılıyor...\n\n📌 <i>${data.news.title}</i>`
         : `❌ <b>Reddedildi.</b> Bu haber yayınlanmayacak.\n\n📌 <i>${data.news.title}</i>`;
 
-      bot.editMessageCaption(statusText, {
+      const editOpts = {
         chat_id: chatId,
         message_id: data.messageId,
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [] }
-      }).catch(() => {});
+      };
+
+      bot.editMessageCaption(statusText, editOpts).catch(() => {
+        bot.editMessageText(statusText, editOpts).catch(() => {});
+      });
 
       bot.answerCallbackQuery(query.id, {
         text: approved ? '🚀 Haber onaylandı!' : '🗑️ Haber reddedildi.'
@@ -185,12 +197,16 @@ async function requestApproval(news, localImagePath) {
         ? `✅ <b>Onaylandı!</b> Paylaşımlar yapılıyor...\n\n📌 <i>${data.news.title}</i>`
         : `❌ <b>Reddedildi.</b> Bu haber yayınlanmayacak.\n\n📌 <i>${data.news.title}</i>`;
 
-      bot.editMessageCaption(statusText, {
+      const editOpts = {
         chat_id: chatId,
         message_id: sentMessage.message_id,
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [] }
-      }).catch(() => {});
+      };
+
+      bot.editMessageCaption(statusText, editOpts).catch(() => {
+        bot.editMessageText(statusText, editOpts).catch(() => {});
+      });
 
       bot.answerCallbackQuery(query.id, {
         text: approved ? '🚀 Haber onaylandı!' : '🗑️ Haber reddedildi.'
