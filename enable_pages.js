@@ -4,7 +4,7 @@
 const https = require('https');
 
 const TOKEN = process.env.GITHUB_TOKEN;
-const REPO  = process.env.GITHUB_REPOSITORY || 'cengo33/Mersin-Haber-Bot';
+const REPO  = process.env.GITHUB_REPOSITORY || 'fatmakutulus33-lgtm/Mersin-Haber-Bot';
 
 function apiRequest(method, path, body) {
   return new Promise((resolve, reject) => {

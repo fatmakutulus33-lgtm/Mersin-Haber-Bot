@@ -2,7 +2,7 @@
 
 Mersin ve ilçelerindeki yerel haberleri otomatik olarak derleyen, akıllı görsel kartlar oluşturan ve Telegram onay mekanizması üzerinden Instagram'da (Akış ve Hikaye olarak) paylaşan tam otonom bir sistemdir.
 
-Sistem şu anda **Oracle Cloud Infrastructure (OCI) VM** üzerinde **7/24 kesintisiz** olarak çalışmaktadır.
+Sistem şu anda **Railway Cloud Infrastructure** üzerinde **7/24 kesintisiz** olarak çalışmaktadır.
 
 ---
 
