@@ -5,8 +5,8 @@
  * Kullanım: node test_once.js
  */
 require('dotenv').config();
-const { initBot } = require('./services/telegram_approver');
-const { runPipeline } = require('./pipeline');
+const { initBot } = require('../services/telegram_approver');
+const { runPipeline } = require('../pipeline');
 
 console.log('🧪 TEST MODU — Tek seferlik çalışma\n');
 
