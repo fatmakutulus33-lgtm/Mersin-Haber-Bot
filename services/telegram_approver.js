@@ -176,18 +176,19 @@ async function requestApproval(news, localImagePath) {
       resolved = true;
       bot.removeListener('callback_query', handler);
 
+      // Read state safely
+      let data = { news };
+      try { data = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8')); } catch (_) {}
+
       const approved = query.data === approvalId;
       const statusText = approved
         ? `✅ <b>Onaylandı!</b> Paylaşımlar yapılıyor...\n\n📌 <i>${data.news.title}</i>`
         : `❌ <b>Reddedildi.</b> Bu haber yayınlanmayacak.\n\n📌 <i>${data.news.title}</i>`;
 
-      // Read state safely
-      let data = { news };
-      try { data = JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8')); } catch (_) {}
-
-      bot.editMessageCaption(approved ? `✅ <b>Onaylandı!</b>` : `❌ <b>Reddedildi.</b>`, {
+      bot.editMessageCaption(statusText, {
         chat_id: chatId,
         message_id: sentMessage.message_id,
+        parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [] }
       }).catch(() => {});
 
