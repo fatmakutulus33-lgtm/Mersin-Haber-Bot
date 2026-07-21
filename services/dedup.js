@@ -1,66 +1,64 @@
-/**
- * services/dedup.js
- * Aynı haberin iki kez paylaşılmasını engeller.
- * Paylaşılan haber ID'lerini JSON dosyasında saklar.
- */
 const fs = require('fs');
 const path = require('path');
 
-const DEDUP_FILE = path.join(__dirname, '..', 'posted_news.json');
-const MAX_HISTORY = 500; // Maksimum kayıt sayısı
+const POSTED_FILE = path.join(__dirname, '..', 'posted_news.json');
 
-function loadHistory() {
+function loadPostedNews() {
+  if (!fs.existsSync(POSTED_FILE)) {
+    return { posted: [] };
+  }
   try {
-    if (fs.existsSync(DEDUP_FILE)) {
-      const data = JSON.parse(fs.readFileSync(DEDUP_FILE, 'utf-8'));
-      if (data && Array.isArray(data.posted)) {
-        return data;
-      }
-    }
-  } catch (e) {}
-  return { posted: [], lastUpdated: null };
+    return JSON.parse(fs.readFileSync(POSTED_FILE, 'utf8'));
+  } catch (e) {
+    console.error('⚠️ posted_news.json reading failed, resetting:', e.message);
+    return { posted: [] };
+  }
 }
 
-function saveHistory(data) {
-  fs.writeFileSync(DEDUP_FILE, JSON.stringify(data, null, 2));
+function savePostedNews(data) {
+  try {
+    fs.writeFileSync(POSTED_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('❌ posted_news.json writing failed:', e.message);
+  }
 }
 
-/**
- * Bu haber daha önce paylaşıldı mı?
- */
-function isAlreadyPosted(newsId) {
-  const history = loadHistory();
-  return Array.isArray(history.posted) ? history.posted.some(p => p.id === newsId) : false;
+function isAlreadyPosted(news) {
+  const data = loadPostedNews();
+  const id = news.id || generateId(news);
+  return data.posted.some(item => item.id === id);
 }
 
-/**
- * Haberi paylaşıldı olarak işaretle
- */
-function markAsPosted(news, postId) {
-  const history = loadHistory();
+function markAsPosted(news, postId = 'PUBLISHED') {
+  const data = loadPostedNews();
+  const id = news.id || generateId(news);
   
-  history.posted.unshift({
-    id: news.id,
-    title: news.title.substring(0, 100),
+  // Deduplicate
+  data.posted = data.posted.filter(item => item.id !== id);
+  
+  data.posted.push({
+    id,
+    title: news.title,
     postId,
-    postedAt: new Date().toISOString(),
+    postedAt: new Date().toISOString()
   });
 
-  // Maksimum kayıt sınırını uygula
-  if (history.posted.length > MAX_HISTORY) {
-    history.posted = history.posted.slice(0, MAX_HISTORY);
+  // Limit cache size to 1000 items to avoid infinite growth
+  if (data.posted.length > 1000) {
+    data.posted.shift();
   }
 
-  history.lastUpdated = new Date().toISOString();
-  saveHistory(history);
+  savePostedNews(data);
 }
 
-/**
- * Son N paylaşımın özetini göster
- */
-function getRecentPosts(n = 5) {
-  const history = loadHistory();
-  return history.posted.slice(0, n);
+function getRecentPosts(limit = 5) {
+  const data = loadPostedNews();
+  return [...data.posted].reverse().slice(0, limit);
 }
 
-module.exports = { isAlreadyPosted, markAsPosted, getRecentPosts };
+function generateId(news) {
+  const crypto = require('crypto');
+  return crypto.createHash('md5').update(news.title).digest('hex');
+}
+
+module.exports = { isAlreadyPosted, markAsPosted, getRecentPosts, generateId };

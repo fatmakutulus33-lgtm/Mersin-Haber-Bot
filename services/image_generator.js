@@ -1,9 +1,3 @@
-/**
- * services/image_generator.js
- * @napi-rs/canvas ile profesyonel Mersin Manşet haber kartı üretir.
- * 1080x1080 px (Instagram kare formatı)
- * Her haber farklı bir temada gösterilir.
- */
 const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
 const path = require('path');
 const fs   = require('fs');
@@ -13,10 +7,8 @@ GlobalFonts.registerFromPath(path.join(FONTS_DIR, 'Arial-Regular.ttf'), 'ArialCu
 GlobalFonts.registerFromPath(path.join(FONTS_DIR, 'Arial-Bold.ttf'), 'ArialCustomBold');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-// ── Tema Paleti ─────────────────────────────────────────────────────────────
-// Her haber bu listeden sırayla (veya rastgele) bir tema alır.
 const THEMES = [
   { name: 'kirmizi',  accent: '#E63946', bg0: '#1a0005', bg1: '#0d0003', muted: '#A8DADC' },
   { name: 'mavi',     accent: '#2563EB', bg0: '#00051a', bg1: '#00030d', muted: '#93C5FD' },
@@ -28,57 +20,36 @@ const THEMES = [
   { name: 'siyan',    accent: '#0891B2', bg0: '#00131a', bg1: '#000a0d', muted: '#67E8F9' },
 ];
 
-/**
- * Haber ID'sinden deterministik tema seçer.
- * Aynı haber her seferinde aynı temayı alır.
- */
 function pickTheme(newsId) {
-  // newsId MD5 hash'i — son karakterin char kodunu mod ile temaya çevir
   const idx = newsId ? (newsId.charCodeAt(newsId.length - 1) % THEMES.length) : 0;
   return THEMES[idx];
 }
 
-/**
- * Haber başlığı kelimelerine göre dinamik renk teması seçer.
- * Eşleşme olmazsa ID tabanlı deterministik seçime döner.
- */
 function pickThemeByTitle(title, newsId) {
   const lowerTitle = (title || '').toLowerCase();
-  
-  // Sports Theme (yesil)
-  if (lowerTitle.includes('spor') || lowerTitle.includes('futbol') || lowerTitle.includes('idman') || lowerTitle.includes('maç') || lowerTitle.includes('stadyum') || lowerTitle.includes('yenildi') || lowerTitle.includes('yendi') || lowerTitle.includes('galibiyet')) {
+  if (lowerTitle.includes('spor') || lowerTitle.includes('futbol') || lowerTitle.includes('maç') || lowerTitle.includes('yendi') || lowerTitle.includes('galibiyet')) {
     return THEMES.find(t => t.name === 'yesil') || THEMES[3];
   }
-  
-  // Accidents / Emergency / Crime Theme (kirmizi)
-  if (lowerTitle.includes('kaza') || lowerTitle.includes('feci') || lowerTitle.includes('cinayet') || lowerTitle.includes('öldü') || lowerTitle.includes('yaralandı') || lowerTitle.includes('yangın') || lowerTitle.includes('tutuklandı') || lowerTitle.includes('gözaltı') || lowerTitle.includes('operasyon')) {
+  if (lowerTitle.includes('kaza') || lowerTitle.includes('cinayet') || lowerTitle.includes('öldü') || lowerTitle.includes('yaralandı') || lowerTitle.includes('yangın') || lowerTitle.includes('operasyon')) {
     return THEMES.find(t => t.name === 'kirmizi') || THEMES[0];
   }
-  
-  // Politics / Official / Government Theme (mavi)
-  if (lowerTitle.includes('belediye') || lowerTitle.includes('başkan') || lowerTitle.includes('bakan') || lowerTitle.includes('vali') || lowerTitle.includes('seçim') || lowerTitle.includes('parti') || lowerTitle.includes('meclis')) {
+  if (lowerTitle.includes('belediye') || lowerTitle.includes('başkan') || lowerTitle.includes('vali') || lowerTitle.includes('meclis')) {
     return THEMES.find(t => t.name === 'mavi') || THEMES[1];
   }
-
-  // Culture / Life / Festivities Theme (mor)
-  if (lowerTitle.includes('festival') || lowerTitle.includes('konser') || lowerTitle.includes('etkinlik') || lowerTitle.includes('sergi') || lowerTitle.includes('tiyatro') || lowerTitle.includes('sanat') || lowerTitle.includes('müzik')) {
+  if (lowerTitle.includes('festival') || lowerTitle.includes('konser') || lowerTitle.includes('etkinlik') || lowerTitle.includes('sanat') || lowerTitle.includes('tiyatro')) {
     return THEMES.find(t => t.name === 'mor') || THEMES[4];
   }
-
-  // Business / Economy / Gold Theme (altin)
-  if (lowerTitle.includes('altın') || lowerTitle.includes('dolar') || lowerTitle.includes('fiyat') || lowerTitle.includes('zam') || lowerTitle.includes('enflasyon') || lowerTitle.includes('ihracat') || lowerTitle.includes('esnaf')) {
+  if (lowerTitle.includes('altın') || lowerTitle.includes('dolar') || lowerTitle.includes('fiyat') || lowerTitle.includes('zam') || lowerTitle.includes('ekonomi')) {
     return THEMES.find(t => t.name === 'altin') || THEMES[2];
   }
-  
   return pickTheme(newsId);
 }
 
-// Yardımcı: hex → rgba
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1,3), 16);
   const g = parseInt(hex.slice(3,5), 16);
   const b = parseInt(hex.slice(5,7), 16);
-  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 const COLORS = {
@@ -86,12 +57,10 @@ const COLORS = {
   lightGray: '#F1FAEE',
 };
 
-// Metni satırlara böl
 function wrapText(ctx, text, maxWidth) {
   const words = text.split(' ');
   const lines = [];
   let current = '';
-
   for (const word of words) {
     const test = current ? `${current} ${word}` : word;
     const { width } = ctx.measureText(test);
@@ -106,7 +75,6 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
-// Yuvarlak köşeli dikdörtgen
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -121,34 +89,15 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/**
- * Haber kartı PNG dosyası oluşturur.
- */
 async function generateNewsCard(news, outputPath, theme) {
-  const SIZE  = 1080;
-  // theme verilmezse haber başlığına göre dinamik seç
-  const T     = theme || pickThemeByTitle(news.title || '', news.id || '');
+  const SIZE = 1080;
+  const T = theme || pickThemeByTitle(news.title || '', news.id || '');
   const ACCENT = T.accent;
   const canvas = createCanvas(SIZE, SIZE);
   const ctx = canvas.getContext('2d');
 
-  // settings.json dosyasından tasarım ayarlarını yükle
-  const settingsPath = path.join(__dirname, '..', 'settings.json');
-  let settings = {
-    badgeText: 'SON DAKİKA',
-    watermarkText: 'www.mersinmanset.tr',
-    logoUrl: 'assets/logo.png'
-  };
-  if (fs.existsSync(settingsPath)) {
-    try {
-      const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      settings = { ...settings, ...saved };
-    } catch (_) {}
-  }
-
-  // 1. ARKA PLAN GÖRSELİ (KAPLAMA)
   let bgImg = null;
-  let bgProps = { x:0, y:0, w:SIZE, h:SIZE };
+  let bgProps = { x: 0, y: 0, w: SIZE, h: SIZE };
 
   if (news.imageUrl) {
     try {
@@ -160,20 +109,16 @@ async function generateNewsCard(news, outputPath, theme) {
       bgProps.y = (SIZE - bgProps.h) / 2;
       
       ctx.drawImage(bgImg, bgProps.x, bgProps.y, bgProps.w, bgProps.h);
-      
-      // Koyu gradyan overlay (yukarıdan aşağıya karararak)
       const overlayGrad = ctx.createLinearGradient(0, 0, 0, SIZE);
       overlayGrad.addColorStop(0, 'rgba(0,0,0,0.1)');
       overlayGrad.addColorStop(1, 'rgba(0,0,0,0.5)');
       ctx.fillStyle = overlayGrad;
       ctx.fillRect(0, 0, SIZE, SIZE);
     } catch (e) {
-      console.warn('⚠️ Görsel çizilemedi:', e.message);
       bgImg = null;
     }
   }
 
-  // Yedek Arka Plan — temaya özel koyu gradyan
   if (!bgImg) {
     const bgGrad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
     bgGrad.addColorStop(0, T.bg0);
@@ -181,7 +126,6 @@ async function generateNewsCard(news, outputPath, theme) {
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, SIZE, SIZE);
 
-    // Accent renk orb (alt sol)
     const orb = ctx.createRadialGradient(180, SIZE - 180, 0, 180, SIZE - 180, 350);
     orb.addColorStop(0, hexToRgba(ACCENT, 0.18));
     orb.addColorStop(1, 'rgba(0,0,0,0)');
@@ -189,29 +133,21 @@ async function generateNewsCard(news, outputPath, theme) {
     ctx.fillRect(0, 0, SIZE, SIZE);
   }
 
-  // 2. LOGO (ÜST SOL)
+  // Draw Logo
   try {
-    let logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
-    if (settings.logoUrl && settings.logoUrl.includes('custom_logo')) {
-      const customPath = path.join(__dirname, '..', 'dashboard', settings.logoUrl);
-      if (fs.existsSync(customPath)) {
-        logoPath = customPath;
-      }
+    const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
+    if (fs.existsSync(logoPath)) {
+      const logoImg = await loadImage(logoPath);
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 15;
+      ctx.drawImage(logoImg, 40, 40, 120, 120);
+      ctx.shadowColor = 'transparent';
     }
-    const logoImg = await loadImage(logoPath);
-    const logoSize = 120;
-    // Arka plana koyu bir damla gölge ekle ki logoyu her fotoda belli etsin
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 15;
-    ctx.drawImage(logoImg, 40, 40, logoSize, logoSize);
-    ctx.shadowColor = 'transparent';
-  } catch(e) {
-    console.warn('⚠️ Logo çizilemedi:', e.message);
-  }
+  } catch(_) {}
 
-  // "SON DAKİKA" rozeti (Üst Sağ)
-  const badgeText = settings.badgeText || 'SON DAKİKA';
+  // SON DAKİKA Badge
   ctx.font = 'bold 21px ArialCustomBold';
+  const badgeText = 'SON DAKİKA';
   const textWidth = ctx.measureText(badgeText).width;
   const bdgW = Math.max(200, textWidth + 60);
   const bdgH = 50;
@@ -225,17 +161,16 @@ async function generateNewsCard(news, outputPath, theme) {
   ctx.shadowBlur  = 18;
   ctx.fill();
   ctx.restore();
+
   ctx.fillStyle = COLORS.white;
   ctx.textBaseline = 'middle';
-  // Daire şeklinde beyaz bildirim noktası çiz
   ctx.beginPath();
   ctx.arc(bdgX + 25, bdgY + bdgH / 2, 5, 0, Math.PI * 2);
   ctx.fill();
-  // Yazıyı dikey ortalı çiz
   ctx.fillText(badgeText, bdgX + 42, bdgY + bdgH / 2);
-  ctx.textBaseline = 'alphabetic'; // baseline geri yükle
+  ctx.textBaseline = 'alphabetic';
 
-  // 3. GLASSMORPHISM PANEL (ALT KISIM)
+  // Glassmorphism Panel
   const panelH = 460;
   const panelY = SIZE - panelH - 40;
   const panelX = 40;
@@ -243,27 +178,23 @@ async function generateNewsCard(news, outputPath, theme) {
 
   ctx.save();
   roundRect(ctx, panelX, panelY, panelW, panelH, 30);
-  ctx.clip(); // Panelin içini kırp
+  ctx.clip();
 
-  // Arka planı bulanık çiz
   if (bgImg) {
     ctx.filter = 'blur(35px)';
-    // Resmi 1.1x büyüt ki blur kenarları taşmasın
     ctx.drawImage(bgImg, bgProps.x - 50, bgProps.y - 50, bgProps.w + 100, bgProps.h + 100);
     ctx.filter = 'none';
   }
 
-  // Yarı şeffaf siyah overlay
   ctx.fillStyle = 'rgba(15, 20, 25, 0.65)';
   ctx.fill();
 
-  // Şık ince cam kenarlık
   ctx.lineWidth = 2;
   ctx.strokeStyle = hexToRgba(ACCENT, 0.35);
   ctx.stroke();
   ctx.restore();
 
-  // Panel üst kenarı — accent rengi
+  // Top border line
   ctx.save();
   roundRect(ctx, panelX, panelY, panelW, 4, 0);
   ctx.fillStyle   = ACCENT;
@@ -272,15 +203,12 @@ async function generateNewsCard(news, outputPath, theme) {
   ctx.fill();
   ctx.restore();
 
-  // 4. METİNLER (PANELİN İÇİ)
+  // Content
   const innerX = panelX + 40;
-  
-  // Tarih (Üst bilgi)
   ctx.fillStyle = T.muted;
   ctx.font = 'bold 21px ArialCustom';
   ctx.fillText('MERSİN • ' + (news.date || new Date().toLocaleDateString('tr-TR')), innerX, panelY + 60);
 
-  // Accent ayırıcı
   ctx.save();
   ctx.fillStyle   = ACCENT;
   ctx.shadowColor = hexToRgba(ACCENT, 0.5);
@@ -289,7 +217,7 @@ async function generateNewsCard(news, outputPath, theme) {
   ctx.fill();
   ctx.restore();
 
-  // Başlık
+  // News Title
   ctx.fillStyle = COLORS.white;
   ctx.font = 'bold 50px ArialCustomBold';
   const titleLines = wrapText(ctx, news.title, panelW - 80);
@@ -303,7 +231,7 @@ async function generateNewsCard(news, outputPath, theme) {
 
   titleEndY += Math.min(titleLines.length, maxTitleLines) * 65;
 
-  // Özet
+  // News Snippet
   if (news.snippet) {
     ctx.fillStyle = COLORS.lightGray;
     ctx.font = '28px ArialCustom';
@@ -314,13 +242,11 @@ async function generateNewsCard(news, outputPath, theme) {
     });
   }
 
-  // Footer: Web sitesi + tema renk noktası
-  const watermarkText = settings.watermarkText || 'www.mersinmanset.tr';
+  // Footer Watermark
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.font = '22px ArialCustom';
-  ctx.fillText(watermarkText, innerX, panelY + panelH - 30);
+  ctx.fillText('www.mersinmanset.tr', innerX, panelY + panelH - 30);
 
-  // Accent nokta
   ctx.save();
   ctx.fillStyle   = ACCENT;
   ctx.shadowColor = ACCENT;
@@ -330,18 +256,13 @@ async function generateNewsCard(news, outputPath, theme) {
   ctx.fill();
   ctx.restore();
 
-  // ── PNG OLARAK KAYDET ─────────────────────────────────────
+  // Save to PNG and JPEG
   const buffer = canvas.toBuffer('image/png');
   fs.writeFileSync(outputPath, buffer);
-  console.log(`🖼️  Görsel oluşturuldu: ${outputPath}`);
 
-  // ── JPEG OLARAK DA KAYDET (TikTok için) ────────────────────
-  if (outputPath.endsWith('.png')) {
-    const jpegPath = outputPath.replace(/\.png$/, '.jpg');
-    const jpegBuffer = canvas.toBuffer('image/jpeg', { quality: 0.95 });
-    fs.writeFileSync(jpegPath, jpegBuffer);
-    console.log(`🖼️  JPEG Görsel de oluşturuldu: ${jpegPath}`);
-  }
+  const jpegPath = outputPath.replace(/\.png$/, '.jpg');
+  const jpegBuffer = canvas.toBuffer('image/jpeg', { quality: 0.95 });
+  fs.writeFileSync(jpegPath, jpegBuffer);
 
   return outputPath;
 }
@@ -353,4 +274,4 @@ function cleanupImage(filePath) {
   }
 }
 
-module.exports = { generateNewsCard, cleanupImage, OUTPUT_DIR, THEMES, pickTheme, pickThemeByTitle };
+module.exports = { generateNewsCard, cleanupImage, OUTPUT_DIR };

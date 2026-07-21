@@ -1,26 +1,23 @@
 {
-  "name": "mersin-haber-bot",
+  "name": "mersin-manset-bot",
   "version": "1.0.0",
-  "description": "Mersin haberleri her saat başı Instagram'da otomatik paylaşır",
+  "description": "Mersin haberleri için yüksek performanslı, sade ve kararlı otomasyon botu",
   "main": "index.js",
   "engines": {
     "node": ">=20.18.1"
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test_once.js",
-    "test:wordpress": "node test_wordpress.js"
+    "test": "node tests/test_flow.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.44",
     "axios": "^1.6.0",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
-    "form-data": "^4.0.0",
     "google-news-decoder": "^1.0.1",
     "node-cron": "^3.0.3",
     "node-telegram-bot-api": "^0.67.0",
-    "puppeteer": "^22.0.0",
     "rss-parser": "^3.13.0"
   }
 }

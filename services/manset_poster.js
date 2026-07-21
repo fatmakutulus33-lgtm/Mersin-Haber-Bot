@@ -1,7 +1,3 @@
-/**
- * services/manset_poster.js
- * Mersin Manşet web portalı API'sine haber gönderir.
- */
 const axios = require('axios');
 
 function mapCategoryToManset(botCategory) {
@@ -19,38 +15,27 @@ function mapCategoryToManset(botCategory) {
 
 function getThemeCategory(title) {
   const lowerTitle = (title || '').toLowerCase();
-  
-  if (lowerTitle.includes('spor') || lowerTitle.includes('futbol') || lowerTitle.includes('idman') || lowerTitle.includes('maç') || lowerTitle.includes('stadyum') || lowerTitle.includes('yenildi') || lowerTitle.includes('yendi') || lowerTitle.includes('galibiyet') || lowerTitle.includes('basketbol')) {
+  if (lowerTitle.includes('spor') || lowerTitle.includes('futbol') || lowerTitle.includes('maç') || lowerTitle.includes('yendi') || lowerTitle.includes('galibiyet')) {
     return 'sports';
   }
-  if (lowerTitle.includes('kaza') || lowerTitle.includes('feci') || lowerTitle.includes('cinayet') || lowerTitle.includes('öldü') || lowerTitle.includes('yaralandı') || lowerTitle.includes('yangın') || lowerTitle.includes('tutuklandı') || lowerTitle.includes('gözaltı') || lowerTitle.includes('operasyon') || lowerTitle.includes('polis')) {
+  if (lowerTitle.includes('kaza') || lowerTitle.includes('cinayet') || lowerTitle.includes('öldü') || lowerTitle.includes('yaralandı') || lowerTitle.includes('yangın') || lowerTitle.includes('operasyon')) {
     return 'accident';
   }
-  if (lowerTitle.includes('belediye') || lowerTitle.includes('başkan') || lowerTitle.includes('bakan') || lowerTitle.includes('vali') || lowerTitle.includes('seçim') || lowerTitle.includes('parti') || lowerTitle.includes('meclis') || lowerTitle.includes('toplantı')) {
+  if (lowerTitle.includes('belediye') || lowerTitle.includes('başkan') || lowerTitle.includes('vali') || lowerTitle.includes('seçim') || lowerTitle.includes('meclis')) {
     return 'city';
   }
-  if (lowerTitle.includes('festival') || lowerTitle.includes('konser') || lowerTitle.includes('etkinlik') || lowerTitle.includes('sergi') || lowerTitle.includes('tiyatro') || lowerTitle.includes('sanat') || lowerTitle.includes('müzik') || lowerTitle.includes('kültür')) {
+  if (lowerTitle.includes('festival') || lowerTitle.includes('konser') || lowerTitle.includes('etkinlik') || lowerTitle.includes('sergi') || lowerTitle.includes('tiyatro')) {
     return 'culture';
   }
-  if (lowerTitle.includes('altın') || lowerTitle.includes('dolar') || lowerTitle.includes('fiyat') || lowerTitle.includes('zam') || lowerTitle.includes('enflasyon') || lowerTitle.includes('ihracat') || lowerTitle.includes('esnaf') || lowerTitle.includes('ekonomi') || lowerTitle.includes('para') || lowerTitle.includes('ticaret')) {
+  if (lowerTitle.includes('altın') || lowerTitle.includes('dolar') || lowerTitle.includes('fiyat') || lowerTitle.includes('zam') || lowerTitle.includes('ekonomi')) {
     return 'finance';
   }
-  if (lowerTitle.includes('tarım') || lowerTitle.includes('çiftçi') || lowerTitle.includes('hal') || lowerTitle.includes('meyve') || lowerTitle.includes('sebze') || lowerTitle.includes('portakal') || lowerTitle.includes('limon') || lowerTitle.includes('domates') || lowerTitle.includes('tarla')) {
+  if (lowerTitle.includes('tarım') || lowerTitle.includes('çiftçi') || lowerTitle.includes('hal') || lowerTitle.includes('meyve')) {
     return 'agriculture';
   }
-  
   return 'general';
 }
 
-function selectMansetImage(news, resolvedCardImageUrl) {
-  return resolvedCardImageUrl || news.webImageUrl || 'images/hero.png';
-}
-
-/**
- * Onaylanıp paylaşılan haberi Mersin Manşet portal API'sine gönderir.
- * @param {object} news - Haber nesnesi
- * @param {string} resolvedCardImageUrl - Çözümlenen kart görseli URL'si (fall back için)
- */
 async function postToMersinManset(news, resolvedCardImageUrl) {
   const websiteUrl = (process.env.MERSIN_MANSET_API_URL || 'https://mersinmanset.tr').replace(/\/$/, '');
   const apiUrl = `${websiteUrl}/api/news`;
@@ -59,11 +44,7 @@ async function postToMersinManset(news, resolvedCardImageUrl) {
   
   const botCategory = getThemeCategory(news.title);
   const category = mapCategoryToManset(botCategory);
-  
-  // Portalda hotlink yerine botun kalıcı depoya aldığı kartı kullan.
-  const image = selectMansetImage(news, resolvedCardImageUrl);
-  
-  // İçerik: Kısa özet + Detay linki
+  const image = resolvedCardImageUrl || news.webImageUrl || 'images/hero.png';
   const content = `${news.snippet}\n\nKaynak: ${news.source}\nDetaylar: ${news.link}`;
   
   const payload = {
@@ -77,9 +58,7 @@ async function postToMersinManset(news, resolvedCardImageUrl) {
 
   try {
     const response = await axios.post(apiUrl, payload, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       timeout: 15000
     });
     
@@ -96,4 +75,4 @@ async function postToMersinManset(news, resolvedCardImageUrl) {
   }
 }
 
-module.exports = { postToMersinManset, selectMansetImage };
+module.exports = { postToMersinManset };

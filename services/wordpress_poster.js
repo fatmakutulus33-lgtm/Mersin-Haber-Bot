@@ -1,7 +1,3 @@
-/**
- * services/wordpress_poster.js
- * Mersin haberlerini WordPress REST API üzerinden yeni içerik olarak yayınlar.
- */
 const axios = require('axios');
 const { resolvePublicUrl } = require('./instagram_poster');
 
@@ -35,7 +31,7 @@ function buildWordPressContent(news, imageUrl) {
 }
 
 async function getWordPressAuth() {
-  const siteUrl = (process.env.WORDPRESS_SITE_URL || 'https://www.mersinmanset.tr').replace(/\/$/, '');
+  const siteUrl = (process.env.WORDPRESS_SITE_URL || 'https://mersinmanset.tr').replace(/\/$/, '');
   const username = process.env.WORDPRESS_USERNAME;
   const appPassword = process.env.WORDPRESS_APP_PASSWORD;
 
@@ -77,6 +73,7 @@ async function postToWordPress(imagePath, news, durableImageUrl) {
       headers: {
         Authorization: `Basic ${token}`,
         'Content-Type': 'application/json',
+        'User-Agent': 'MersinHaberBot/1.0'
       },
       timeout: 20000,
     });
@@ -84,8 +81,6 @@ async function postToWordPress(imagePath, news, durableImageUrl) {
     const postUrl = response.data?.link || null;
     if (postUrl) {
       console.log('✅ WordPress paylaşımı başarıyla tamamlandı!');
-    } else {
-      console.warn('⚠️ WordPress API yanıtı beklenen link alanını içermiyor:', response.data);
     }
     return postUrl;
   } catch (err) {

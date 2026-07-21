@@ -1,48 +1,32 @@
-/**
- * services/zernio_poster.js
- * Zernio API ile TikTok üzerinde haber paylaşımı yapar.
- */
 const axios = require('axios');
 const fs = require('fs');
-const path = require('path');
 
-/**
- * Zernio API aracılığıyla TikTok'a haber görseli ve açıklaması gönderir.
- * @param {string} imagePath - Oluşturulan kartın dosya yolu (.png veya .jpg)
- * @param {object} news - Haber objesi (title, snippet vb. barındırır)
- */
 async function postToTikTok(imagePath, news) {
   const apiKey = process.env.ZERNIO_API_KEY;
   if (!apiKey) {
-    throw new Error('ZERNIO_API_KEY env variable is missing. Please set it in .env');
+    throw new Error('ZERNIO_API_KEY bulunamadı.');
   }
 
-  // TikTok Account ID
   const accountId = "6a2f8a705f7d1751abb89639";
-  
-  // TikTok PNG desteklemediği için JPEG formatındaki görseli kullanacağız
   let jpegPath = imagePath;
   if (imagePath.endsWith('.png')) {
     jpegPath = imagePath.replace(/\.png$/, '.jpg');
   }
 
   if (!fs.existsSync(jpegPath)) {
-    throw new Error(`JPEG image file not found for TikTok: ${jpegPath}`);
+    throw new Error(`TikTok için JPEG dosyası bulunamadı: ${jpegPath}`);
   }
 
-  // resolvePublicUrl fonksiyonunu instagram_poster'dan import ederek görseli CDN/Catbox.moe'ya yüklüyoruz
   const { resolvePublicUrl } = require('./instagram_poster');
-  
   console.log('📤 TikTok görseli public URL\'e çevriliyor...');
   const imageUrl = await resolvePublicUrl(jpegPath);
   console.log('🌐 TikTok Görsel URL:', imageUrl);
 
-  // TikTok fotoğraf paylaşımlarında başlık/içerik en fazla 90 karakter olmalıdır.
   let content = `📰 ${news.title}`;
   const hashtags = ' #mersin #haber';
   
   if (content.length + hashtags.length > 90) {
-    const allowedTitleLength = 90 - hashtags.length - 4; // '...' ve boşluklar dahil
+    const allowedTitleLength = 90 - hashtags.length - 4;
     content = `📰 ${news.title.substring(0, allowedTitleLength)}...` + hashtags;
   } else {
     content = content + hashtags;
@@ -52,8 +36,7 @@ async function postToTikTok(imagePath, news) {
     content = content.substring(0, 87) + '...';
   }
 
-  console.log('🚀 Sending post to Zernio TikTok API...');
-  
+  console.log('🚀 TikTok paylaşımı Zernio API üzerinden gönderiliyor...');
   const response = await axios.post('https://zernio.com/api/v1/posts', {
     content: content,
     mediaItems: [
@@ -78,10 +61,8 @@ async function postToTikTok(imagePath, news) {
     timeout: 30000
   });
 
-  console.log('✅ Zernio TikTok API Success!');
-  // API response içerisindeki ID'yi dön
-  const publishId = response.data?.id || (response.data?.data && response.data.data.id) || 'zernio_tiktok_success';
-  return publishId;
+  console.log('✅ Zernio TikTok API başarılı!');
+  return response.data?.id || 'zernio_tiktok_success';
 }
 
 module.exports = { postToTikTok };

@@ -1,5 +1,6 @@
+node_modules
 .env
-node_modules/
 output/
-posted_news.json
+pending_approval.json
 *.log
+

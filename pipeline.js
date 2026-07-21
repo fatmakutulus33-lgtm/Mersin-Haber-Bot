@@ -5,40 +5,18 @@ const { fetchMersinNews } = require('./services/news_fetcher');
 const { extractNewsImage, downloadImage } = require('./services/image_fetcher');
 const { generateNewsCard, cleanupImage, OUTPUT_DIR } = require('./services/image_generator');
 const { postToInstagram } = require('./services/instagram_poster');
-const { isAlreadyPosted, markAsPosted, getRecentPosts } = require('./services/dedup');
+const { isAlreadyPosted, markAsPosted } = require('./services/dedup');
 const { requestApproval, sendNotification } = require('./services/telegram_approver');
 
 function now() {
   return new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
 }
 
-const FALLBACKS_DIR = path.join(__dirname, 'assets', 'fallbacks');
-const LOCAL_FALLBACKS = {
-  sports: { url: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1080&q=80', file: 'spor.jpg' },
-  accident: { url: 'https://images.unsplash.com/photo-1563206767-5b18f218e8de?auto=format&fit=crop&w=1080&q=80', file: 'kaza.jpg' },
-  city: { url: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=1080&q=80', file: 'siyaset.jpg' },
-  culture: { url: 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?auto=format&fit=crop&w=1080&q=80', file: 'kultur.jpg' },
-  finance: { url: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1080&q=80', file: 'ekonomi.jpg' },
-  agriculture: { url: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1080&q=80', file: 'tarim.jpg' },
-  general: { url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1080&q=80', file: 'genel.jpg' }
-};
-
-async function ensureFallbackImages() {
-  if (!fs.existsSync(FALLBACKS_DIR)) fs.mkdirSync(FALLBACKS_DIR, { recursive: true });
-  for (const key of Object.keys(LOCAL_FALLBACKS)) {
-    const item = LOCAL_FALLBACKS[key];
-    const localPath = path.join(FALLBACKS_DIR, item.file);
-    if (!fs.existsSync(localPath)) {
-      await downloadImage(item.url, localPath);
-    }
-  }
-}
-
 async function getNextNewsItem() {
   const allNews = await fetchMersinNews();
   if (allNews.length === 0) return null;
 
-  const candidates = allNews.filter(n => !isAlreadyPosted(n.id));
+  const candidates = allNews.filter(n => !isAlreadyPosted(n));
   if (candidates.length === 0) return null;
 
   for (const candidate of candidates) {
@@ -60,12 +38,15 @@ async function getNextNewsItem() {
 
 async function runPipeline(newsItem = null) {
   console.log('\n' + '═'.repeat(55));
-  console.log(`🗞️  MERSIN HABER BOT — ${now()}`);
+  console.log(`🗞️  MERSIN MANSET BOT PIPELINE — ${now()}`);
   console.log('═'.repeat(55));
 
   let news = newsItem;
   if (!news) news = await getNextNewsItem();
-  if (!news) throw new Error('Paylaşılmamış yeni bir haber bulunamadı!');
+  if (!news) {
+    console.log('ℹ️  Paylaşılmamış yeni bir haber bulunamadı.');
+    return;
+  }
 
   const resolvedImageUrl = news.webImageUrl || news.imageUrl || null;
   if (!resolvedImageUrl) {
@@ -104,6 +85,7 @@ async function publishNewsItem(imageFile, news) {
     console.error("❌ Kalıcı görsel URL'si oluşturulamadı:", err.message);
   }
 
+  // 1. WordPress (WordPress First!)
   let wordpressLink = null;
   const wordpressEnabled = String(process.env.WORDPRESS_ENABLED || 'true').toLowerCase() !== 'false';
   if (wordpressEnabled) {
@@ -116,6 +98,7 @@ async function publishNewsItem(imageFile, news) {
     }
   }
 
+  // 2. Mersin Manşet Web Portal API
   try {
     const { postToMersinManset } = require('./services/manset_poster');
     await postToMersinManset(news, durableImage && durableImage.url);
@@ -123,15 +106,15 @@ async function publishNewsItem(imageFile, news) {
     console.error('❌ Web portalına haber gönderilirken hata oluştu:', err.message);
   }
 
+  // 3. Instagram
   let publishId = null;
-  let instagramError = null;
   try {
     publishId = await postToInstagram(imageFile, news);
   } catch (err) {
-    instagramError = err;
-    console.error('❌ Instagram paylaşımı başarısız; diğer platformlara devam ediliyor:', err.message);
+    console.error('❌ Instagram paylaşımı başarısız:', err.message);
   }
 
+  // 4. TikTok (Zernio)
   let tiktokPublishId = null;
   try {
     const { postToTikTok } = require('./services/zernio_poster');
@@ -140,10 +123,7 @@ async function publishNewsItem(imageFile, news) {
     console.error('❌ TikTok paylaşımı sırasında hata oluştu:', err.message);
   }
 
-  const completedPublishId = wordpressLink || publishId || tiktokPublishId || 'WP_POSTED';
-  if (!completedPublishId) {
-    throw new Error(`Platform paylaşımları başarısız oldu. Instagram: ${instagramError ? instagramError.message : 'bilinmiyor'}`);
-  }
+  const completedPublishId = wordpressLink || publishId || tiktokPublishId || 'POSTED';
   markAsPosted(news, completedPublishId);
 
   if (!(durableImage && durableImage.keepLocalFile)) {
@@ -162,7 +142,6 @@ async function publishNewsItem(imageFile, news) {
   else message += `⚠️ <b>TikTok:</b> Paylaşılamadı.`;
 
   await sendNotification(message);
-  getRecentPosts(3).forEach((p, i) => console.log(`   ${i + 1}. ${p.title.substring(0, 55)} (${new Date(p.postedAt).toLocaleString('tr-TR')})`));
 }
 
 module.exports = { runPipeline, getNextNewsItem, publishNewsItem };
