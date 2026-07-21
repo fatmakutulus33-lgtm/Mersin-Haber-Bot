@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c" width="500" height="500"></canvas>
+<script>
+  const bgUrl = "https://lh3.googleusercontent.com/J6_coFbogxhRI9iM864NL_liGXvsQp2AupsKei7z0cNNfDvGUmWUy20nuUhkREQyrpY4bEeIBuc=s0-w300";
+  const bgImg = new Image();
+  bgImg.crossOrigin = "Anonymous";
+  
+  bgImg.onload = () => {
+    document.getElementById('c').getContext('2d').drawImage(bgImg, 0, 0);
+    console.log("Success with: " + bgImg.src);
+  };
+  
+  bgImg.onerror = () => {
+    if (!bgImg.src.includes('codetabs')) {
+      console.log("Failed direct, trying codetabs");
+      bgImg.src = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(bgUrl)}`;
+    } else {
+      console.log("Failed completely");
+    }
+  };
+  
+  bgImg.src = bgUrl;
+</script>
+</body>
+</html>
